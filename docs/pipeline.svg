@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" role="img" aria-labelledby="t d">
+  <title id="t">SayFit pipeline</title>
+  <desc id="d">Voice or text input goes through LLM extraction, an ontology filter, FAISS retrieval and an LLM reranker, then to user review, the SQLite logbook and recipe suggestions. A Next.js web UI talks to a FastAPI backend; a data pipeline builds the index; Langfuse, Prometheus and Grafana observe the system. Highlighted boxes mark Robert Straubmüller's part.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#121413"/>
+    </marker>
+    <style>
+      .bg{fill:#f4f5f2}
+      .box{fill:#f4f5f2;stroke:#121413;stroke-width:1}
+      .mine{fill:#cdeee5;stroke:#121413;stroke-width:1}
+      .line{stroke:#121413;stroke-width:1;fill:none}
+      .num{font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;fill:#5d615c;letter-spacing:.04em}
+      .ttl{font:600 18px ui-sans-serif,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;fill:#121413}
+      .txt{font:13px ui-sans-serif,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;fill:#121413}
+      .mono{font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;fill:#5d615c}
+      .head{font:600 26px ui-sans-serif,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;fill:#121413}
+      .sub{font:14px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;fill:#5d615c}
+      .tag{font:11px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;fill:#121413;letter-spacing:.04em}
+    </style>
+  </defs>
+  <rect class="bg" width="1200" height="640"/>
+
+  <text class="head" x="40" y="52">SayFit pipeline</text>
+  <text class="sub" x="40" y="76">Say what you ate → structured nutrition data → what to eat next</text>
+  <rect class="mine" x="858" y="40" width="16" height="16"/>
+  <text class="tag" x="882" y="53">MY PART: PROMPTS, EVALUATION,</text>
+  <text class="tag" x="882" y="69">RETRIEVAL QUALITY, WEB UI</text>
+
+  <!-- Reihe 1 -->
+  <rect class="box" x="40" y="110" width="250" height="120"/>
+  <text class="num" x="56" y="134">STEP 0</text>
+  <text class="ttl" x="56" y="160">Voice or text</text>
+  <text class="txt" x="56" y="184">"2 scrambled eggs and a banana"</text>
+  <text class="mono" x="56" y="210">Whisper transcription</text>
+
+  <rect class="mine" x="330" y="110" width="250" height="120"/>
+  <text class="num" x="346" y="134">STEP 1 · LLM</text>
+  <text class="ttl" x="346" y="160">Extraction</text>
+  <text class="txt" x="346" y="184">Foods, quantities, category ranks</text>
+  <text class="mono" x="346" y="210">Llama 3.3 70B via Groq</text>
+
+  <rect class="mine" x="620" y="110" width="250" height="120"/>
+  <text class="num" x="636" y="134">STEP 1.5</text>
+  <text class="ttl" x="636" y="160">Ontology filter</text>
+  <text class="txt" x="636" y="184">Categories and portion hints</text>
+  <text class="mono" x="636" y="210">Food ontology + portion defaults</text>
+
+  <rect class="mine" x="910" y="110" width="250" height="120"/>
+  <text class="num" x="926" y="134">STEP 2</text>
+  <text class="ttl" x="926" y="160">Retrieval</text>
+  <text class="txt" x="926" y="184">Multi-query search, category boosts</text>
+  <text class="mono" x="926" y="210">FAISS · all-MiniLM-L6-v2</text>
+
+  <line class="line" x1="290" y1="170" x2="328" y2="170" marker-end="url(#arrow)"/>
+  <line class="line" x1="580" y1="170" x2="618" y2="170" marker-end="url(#arrow)"/>
+  <line class="line" x1="870" y1="170" x2="908" y2="170" marker-end="url(#arrow)"/>
+  <polyline class="line" points="1035,230 1035,255 165,255 165,288" marker-end="url(#arrow)"/>
+
+  <!-- Reihe 2 -->
+  <rect class="mine" x="40" y="290" width="250" height="120"/>
+  <text class="num" x="56" y="314">STEP 3 · LLM</text>
+  <text class="ttl" x="56" y="340">Rerank</text>
+  <text class="txt" x="56" y="364">Best match, grams, confidence</text>
+  <text class="mono" x="56" y="390">Llama 3.3 70B via Groq</text>
+
+  <rect class="box" x="330" y="290" width="250" height="120"/>
+  <text class="num" x="346" y="314">STEP 4</text>
+  <text class="ttl" x="346" y="340">Review</text>
+  <text class="txt" x="346" y="364">The user checks and corrects</text>
+  <text class="mono" x="346" y="390">in the web UI</text>
+
+  <rect class="box" x="620" y="290" width="250" height="120"/>
+  <text class="num" x="636" y="314">STEP 5</text>
+  <text class="ttl" x="636" y="340">Logbook</text>
+  <text class="txt" x="636" y="364">Meals, items, daily macros</text>
+  <text class="mono" x="636" y="390">SQLite</text>
+
+  <rect class="box" x="910" y="290" width="250" height="120"/>
+  <text class="num" x="926" y="314">STEP 6</text>
+  <text class="ttl" x="926" y="340">Recipe suggestions</text>
+  <text class="txt" x="926" y="364">Fill the remaining macros</text>
+  <text class="mono" x="926" y="390">130K recipes · live API</text>
+
+  <line class="line" x1="290" y1="350" x2="328" y2="350" marker-end="url(#arrow)"/>
+  <line class="line" x1="580" y1="350" x2="618" y2="350" marker-end="url(#arrow)"/>
+  <line class="line" x1="870" y1="350" x2="908" y2="350" marker-end="url(#arrow)"/>
+
+  <!-- Unterbau -->
+  <line class="line" x1="40" y1="450" x2="1160" y2="450"/>
+  <text class="num" x="40" y="476">AROUND THE PIPELINE</text>
+
+  <rect class="mine" x="40" y="492" width="360" height="110"/>
+  <text class="ttl" x="56" y="524">Web UI ⇄ API</text>
+  <text class="txt" x="56" y="550">Next.js 16 · React 19, review before saving</text>
+  <text class="mono" x="56" y="580">FastAPI, 10 endpoints, Docker</text>
+
+  <rect class="box" x="420" y="492" width="360" height="110"/>
+  <text class="ttl" x="436" y="524">Data pipeline</text>
+  <text class="txt" x="436" y="550">Builds and versions the FAISS index</text>
+  <text class="mono" x="436" y="580">Prefect · DuckDB · dbt · DVC</text>
+
+  <rect class="box" x="800" y="492" width="360" height="110"/>
+  <text class="ttl" x="816" y="524">Observability</text>
+  <text class="txt" x="816" y="550">Langfuse traces every LLM call</text>
+  <text class="mono" x="816" y="580">Prometheus + Grafana for the API</text>
+</svg>

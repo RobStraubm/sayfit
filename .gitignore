@@ -1,0 +1,11 @@
+# Abhängigkeiten und Builds
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# lokale Einstellungen
+.env*
+
+# macOS
+.DS_Store
