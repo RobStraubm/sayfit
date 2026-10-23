@@ -1,48 +1,47 @@
 "use client";
 
 import { useEffect } from "react";
-import { useAppStore } from "@/lib/store/app.store";
+import { useAppStore, type NavId } from "@/lib/store/app.store";
 import { NavRail } from "./NavRail";
 import { Dashboard } from "@/components/features/dashboard/Dashboard";
 import { HistoryView } from "@/components/features/history/HistoryView";
 import { RecipesView } from "@/components/features/recipes/RecipesView";
 import { SettingsView } from "@/components/features/settings/SettingsView";
 
+const VIEWS: Record<NavId, React.ComponentType> = {
+  dashboard: Dashboard,
+  history: HistoryView,
+  recipes: RecipesView,
+  settings: SettingsView,
+};
+
+// ⌘/Ctrl + key
+const SHORTCUTS: Record<string, () => void> = {
+  l: () => useAppStore.getState().openLogFlow("voice"),
+  d: () => useAppStore.getState().setActiveNav("dashboard"),
+  h: () => useAppStore.getState().setActiveNav("history"),
+};
+
 export function AppShell() {
   const activeNav = useAppStore((s) => s.activeNav);
+  const View = VIEWS[activeNav];
 
-  // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "l") {
-        e.preventDefault();
-        useAppStore.getState().openLogFlow("voice");
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "d") {
-        e.preventDefault();
-        useAppStore.getState().setActiveNav("dashboard");
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "h") {
-        e.preventDefault();
-        useAppStore.getState().setActiveNav("history");
-      }
+      const action = SHORTCUTS[e.key];
+      if (!action || !(e.metaKey || e.ctrlKey)) return;
+      e.preventDefault();
+      action();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
   return (
-    <div
-      className="h-full flex"
-      style={{ paddingLeft: "var(--rail-width, 56px)" }}
-    >
+    <div className="flex h-full pl-(--rail-width)">
       <NavRail />
-
-      <main className="flex-1 flex min-w-0 overflow-hidden">
-        {activeNav === "dashboard" && <Dashboard />}
-        {activeNav === "history"   && <HistoryView />}
-        {activeNav === "recipes"   && <RecipesView />}
-        {activeNav === "settings"  && <SettingsView />}
+      <main className="flex min-w-0 flex-1 overflow-hidden">
+        <View />
       </main>
     </div>
   );

@@ -33,7 +33,7 @@ export const mealsApi = {
   patchItem: async (
     uid: string,
     itemId: string,
-    body: ItemPatch
+    body: ItemPatch,
   ): Promise<void> => {
     await apiClient.patch(`/meals/${uid}/items/${itemId}`, body);
   },
@@ -42,7 +42,7 @@ export const mealsApi = {
   deleteItem: async (
     uid: string,
     itemId: string,
-    mealId: string
+    mealId: string,
   ): Promise<void> => {
     await apiClient.delete(`/meals/${uid}/items/${itemId}`, {
       params: { meal_id: mealId },

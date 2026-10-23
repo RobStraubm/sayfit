@@ -1,51 +1,76 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { create } from "zustand";
-import type { Meal, MacroTotals, UserProfile } from "@/lib/api/types";
+import { persist } from "zustand/middleware";
+import type { LlmModel, Meal } from "@/lib/api/types";
+
+// Client and UI state only. Server data (meals, history) lives in TanStack Query.
 
 // ── Pipeline step ──────────────────────────────────────────────
 export type StepId =
-  | "extraction"
-  | "ontology"
-  | "retrieval"
-  | "reranker"
-  | "database";
+  "extraction" | "ontology" | "retrieval" | "reranker" | "database";
 
 export type StepStatus = "pending" | "active" | "done" | "error";
 
 export interface PipelineStep {
   id: StepId;
   label: string;
-  emoji: string;
   status: StepStatus;
-  startedAt: number | null;    // Date.now()
+  startedAt: number | null; // Date.now()
   doneAt: number | null;
   durationMs: number | null;
   logLines: string[];
 }
 
-const DEFAULT_STEPS: PipelineStep[] = [
-  { id: "extraction", label: "Extracting food items",         emoji: "✦", status: "pending", startedAt: null, doneAt: null, durationMs: null, logLines: [] },
-  { id: "ontology",   label: "Classifying food categories",   emoji: "◈", status: "pending", startedAt: null, doneAt: null, durationMs: null, logLines: [] },
-  { id: "retrieval",  label: "Finding food matches",          emoji: "◎", status: "pending", startedAt: null, doneAt: null, durationMs: null, logLines: [] },
-  { id: "reranker",   label: "Estimating portions & macros",  emoji: "⟡", status: "pending", startedAt: null, doneAt: null, durationMs: null, logLines: [] },
-  { id: "database",   label: "Saving to logbook",             emoji: "◉", status: "pending", startedAt: null, doneAt: null, durationMs: null, logLines: [] },
-];
+const STEP_LABELS: Record<StepId, string> = {
+  extraction: "Extracting food items",
+  ontology: "Classifying food categories",
+  retrieval: "Finding food matches",
+  reranker: "Estimating portions & macros",
+  database: "Saving to logbook",
+};
 
-export type PipelineStatus =
-  | "idle"
-  | "running"
-  | "reviewing"
-  | "saving"
-  | "done"
-  | "error";
+export const STEP_ORDER = Object.keys(STEP_LABELS) as StepId[];
+
+function initialSteps(): PipelineStep[] {
+  return STEP_ORDER.map((id) => ({
+    id,
+    label: STEP_LABELS[id],
+    status: "pending",
+    startedAt: null,
+    doneAt: null,
+    durationMs: null,
+    logLines: [],
+  }));
+}
+
+export type PipelineStatus = "idle" | "running" | "reviewing" | "error";
+
+export interface PipelineState {
+  status: PipelineStatus;
+  steps: PipelineStep[];
+  startedAt: number | null;
+  elapsedMs: number;
+  result: Meal | null;
+  error: string | null;
+}
+
+function initialPipeline(): PipelineState {
+  return {
+    status: "idle",
+    steps: initialSteps(),
+    startedAt: null,
+    elapsedMs: 0,
+    result: null,
+    error: null,
+  };
+}
 
 export type LogStep =
-  | "input"
-  | "voice"
-  | "processing"
-  | "reviewing"
-  | "confirmed";
+  "input" | "voice" | "processing" | "reviewing" | "confirmed";
+export type InputMode = "text" | "voice";
+export type NavId = "dashboard" | "history" | "recipes" | "settings";
 
 // ── Notification ───────────────────────────────────────────────
 export interface AppNotification {
@@ -56,48 +81,29 @@ export interface AppNotification {
   duration?: number;
 }
 
+let notificationSeq = 0;
+
 // ── Store ──────────────────────────────────────────────────────
 interface AppState {
-  // User
+  // Persisted in localStorage
   uid: string;
-  profile: UserProfile | null;
+  model: LlmModel;
 
-  // Model
-  model: string;
-
-  // Today
-  todayMeals: Meal[];
-  todayTotals: MacroTotals;
-  todayLoading: boolean;
-
-  // Log Flow
+  // Log flow
   logFlowOpen: boolean;
   logStep: LogStep;
   inputText: string;
-  inputMode: "text" | "voice";
-  pipeline: {
-    status: PipelineStatus;
-    steps: PipelineStep[];
-    startedAt: number | null;
-    elapsedMs: number;
-    result: Meal | null;
-    error: string | null;
-  };
+  inputMode: InputMode;
+  pipeline: PipelineState;
 
   // UI
   notifications: AppNotification[];
-  activeNav: "dashboard" | "history" | "recipes" | "settings";
+  activeNav: NavId;
 
-  // ── Actions ──────────────────────────────────────────────────
   setUid: (uid: string) => void;
-  setProfile: (p: UserProfile | null) => void;
-  setModel: (model: string) => void;
+  setModel: (model: LlmModel) => void;
 
-  setTodayMeals: (meals: Meal[]) => void;
-  setTodayLoading: (v: boolean) => void;
-  computeTotals: () => void;
-
-  openLogFlow: (mode?: "text" | "voice") => void;
+  openLogFlow: (mode?: InputMode) => void;
   closeLogFlow: () => void;
   setLogStep: (step: LogStep) => void;
   setInputText: (text: string) => void;
@@ -105,214 +111,147 @@ interface AppState {
   startPipeline: () => void;
   setPipelineStepActive: (id: StepId) => void;
   setPipelineStepDone: (id: StepId, logLines?: string[]) => void;
-  setPipelineStepError: (id: StepId, msg: string) => void;
   setPipelineResult: (meal: Meal) => void;
   setPipelineError: (msg: string) => void;
   tickElapsed: () => void;
   resetPipeline: () => void;
 
-  addMeal: (meal: Meal) => void;
-  removeMeal: (mealId: string) => void;
-
   addNotification: (n: Omit<AppNotification, "id">) => void;
   removeNotification: (id: string) => void;
 
-  setActiveNav: (nav: "dashboard" | "history" | "recipes" | "settings") => void;
+  setActiveNav: (nav: NavId) => void;
 }
 
-function computeMacros(meals: Meal[]): MacroTotals {
-  return meals.reduce(
-    (acc, meal) => {
-      meal.items.forEach((item) => {
-        acc.calories += item.calories;
-        acc.protein  += item.protein;
-        acc.fat      += item.fat;
-        acc.carbs    += item.carbs;
-      });
-      return acc;
+function updateStep(
+  steps: PipelineStep[],
+  id: StepId,
+  update: (step: PipelineStep) => PipelineStep,
+): PipelineStep[] {
+  return steps.map((step) => (step.id === id ? update(step) : step));
+}
+
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => ({
+      uid: "default_user",
+      model: "openai",
+
+      logFlowOpen: false,
+      logStep: "input",
+      inputText: "",
+      inputMode: "voice",
+      pipeline: initialPipeline(),
+
+      notifications: [],
+      activeNav: "dashboard",
+
+      setUid: (uid) => set({ uid }),
+      setModel: (model) => set({ model }),
+
+      // ── Log flow ────────────────────────────────────────────────
+      openLogFlow: (mode = "voice") =>
+        set({
+          logFlowOpen: true,
+          logStep: mode === "voice" ? "voice" : "input",
+          inputMode: mode,
+          pipeline: initialPipeline(),
+          inputText: "",
+        }),
+      closeLogFlow: () => set({ logFlowOpen: false }),
+      setLogStep: (logStep) => set({ logStep }),
+      setInputText: (inputText) => set({ inputText }),
+
+      // ── Pipeline ────────────────────────────────────────────────
+      startPipeline: () =>
+        set({
+          pipeline: {
+            ...initialPipeline(),
+            status: "running",
+            startedAt: Date.now(),
+          },
+          logStep: "processing",
+        }),
+
+      setPipelineStepActive: (id) =>
+        set((s) => ({
+          pipeline: {
+            ...s.pipeline,
+            steps: updateStep(s.pipeline.steps, id, (step) => ({
+              ...step,
+              status: "active",
+              startedAt: Date.now(),
+            })),
+          },
+        })),
+
+      setPipelineStepDone: (id, logLines = []) =>
+        set((s) => {
+          const now = Date.now();
+          return {
+            pipeline: {
+              ...s.pipeline,
+              steps: updateStep(s.pipeline.steps, id, (step) => ({
+                ...step,
+                status: "done",
+                doneAt: now,
+                durationMs: step.startedAt ? now - step.startedAt : null,
+                logLines,
+              })),
+            },
+          };
+        }),
+
+      setPipelineResult: (meal) =>
+        set((s) => ({
+          pipeline: { ...s.pipeline, status: "reviewing", result: meal },
+          logStep: "reviewing",
+        })),
+
+      setPipelineError: (msg) =>
+        set((s) => ({
+          pipeline: { ...s.pipeline, status: "error", error: msg },
+        })),
+
+      tickElapsed: () =>
+        set((s) => {
+          const start = s.pipeline.startedAt;
+          if (!start) return s;
+          return { pipeline: { ...s.pipeline, elapsedMs: Date.now() - start } };
+        }),
+
+      resetPipeline: () => set({ pipeline: initialPipeline(), inputText: "" }),
+
+      // ── Notifications ───────────────────────────────────────────
+      addNotification: (n) => {
+        const id = String(++notificationSeq);
+        set((s) => ({ notifications: [...s.notifications, { ...n, id }] }));
+        const duration = n.duration ?? 4000;
+        if (duration > 0) {
+          setTimeout(() => get().removeNotification(id), duration);
+        }
+      },
+      removeNotification: (id) =>
+        set((s) => ({
+          notifications: s.notifications.filter((n) => n.id !== id),
+        })),
+
+      setActiveNav: (activeNav) => set({ activeNav }),
+    }),
+    {
+      name: "sayfit",
+      partialize: ({ uid, model }) => ({ uid, model }),
+      // Rehydrated in <Providers> after mount, so the first client render
+      // matches the prerendered HTML.
+      skipHydration: true,
     },
-    { calories: 0, protein: 0, fat: 0, carbs: 0 }
+  ),
+);
+
+/** True once the persisted user and model have been loaded from localStorage. */
+export function useStoreHydrated(): boolean {
+  return useSyncExternalStore(
+    (onChange) => useAppStore.persist.onFinishHydration(onChange),
+    () => useAppStore.persist.hasHydrated(),
+    () => false,
   );
 }
-
-export const useAppStore = create<AppState>((set, get) => ({
-  uid: typeof window !== "undefined"
-    ? localStorage.getItem("sayfit_uid") ?? "default_user"
-    : "default_user",
-  profile: null,
-
-  model: typeof window !== "undefined"
-    ? localStorage.getItem("sayfit_model") ?? "openai"
-    : "openai",
-
-  todayMeals: [],
-  todayTotals: { calories: 0, protein: 0, fat: 0, carbs: 0 },
-  todayLoading: false,
-
-  logFlowOpen: false,
-  logStep: "input",
-  inputText: "",
-  inputMode: "voice",
-  pipeline: {
-    status: "idle",
-    steps: DEFAULT_STEPS.map((s) => ({ ...s })),
-    startedAt: null,
-    elapsedMs: 0,
-    result: null,
-    error: null,
-  },
-
-  notifications: [],
-  activeNav: "dashboard",
-
-  // ── User ──────────────────────────────────────────────────────
-  setUid: (uid) => {
-    if (typeof window !== "undefined") localStorage.setItem("sayfit_uid", uid);
-    set({ uid });
-  },
-  setProfile: (profile) => set({ profile }),
-  setModel: (model) => {
-    if (typeof window !== "undefined") localStorage.setItem("sayfit_model", model);
-    set({ model });
-  },
-
-  // ── Today ─────────────────────────────────────────────────────
-  setTodayMeals: (meals) => {
-    const totals = computeMacros(meals);
-    set({ todayMeals: meals, todayTotals: totals });
-  },
-  setTodayLoading: (v) => set({ todayLoading: v }),
-  computeTotals: () => {
-    const totals = computeMacros(get().todayMeals);
-    set({ todayTotals: totals });
-  },
-
-  addMeal: (meal) => {
-    const meals = [meal, ...get().todayMeals];
-    const totals = computeMacros(meals);
-    set({ todayMeals: meals, todayTotals: totals });
-  },
-  removeMeal: (mealId) => {
-    const meals = get().todayMeals.filter((m) => m.meal_id !== mealId);
-    const totals = computeMacros(meals);
-    set({ todayMeals: meals, todayTotals: totals });
-  },
-
-  // ── Log Flow ──────────────────────────────────────────────────
-  openLogFlow: (mode = "voice") => {
-    set({ logFlowOpen: true, logStep: mode === "voice" ? "voice" : "input", inputMode: mode });
-    get().resetPipeline();
-  },
-  closeLogFlow: () => set({ logFlowOpen: false }),
-  setLogStep: (step) => set({ logStep: step }),
-  setInputText: (text) => set({ inputText: text }),
-
-  // ── Pipeline ──────────────────────────────────────────────────
-  startPipeline: () =>
-    set((s) => ({
-      pipeline: {
-        ...s.pipeline,
-        status: "running",
-        startedAt: Date.now(),
-        elapsedMs: 0,
-        steps: DEFAULT_STEPS.map((d) => ({ ...d })),
-        result: null,
-        error: null,
-      },
-      logStep: "processing",
-    })),
-
-  setPipelineStepActive: (id) =>
-    set((s) => ({
-      pipeline: {
-        ...s.pipeline,
-        steps: s.pipeline.steps.map((step) =>
-          step.id === id
-            ? { ...step, status: "active", startedAt: Date.now() }
-            : step
-        ),
-      },
-    })),
-
-  setPipelineStepDone: (id, logLines = []) =>
-    set((s) => {
-      const now = Date.now();
-      return {
-        pipeline: {
-          ...s.pipeline,
-          steps: s.pipeline.steps.map((step) =>
-            step.id === id
-              ? {
-                  ...step,
-                  status: "done",
-                  doneAt: now,
-                  durationMs: step.startedAt ? now - step.startedAt : null,
-                  logLines,
-                }
-              : step
-          ),
-        },
-      };
-    }),
-
-  setPipelineStepError: (id, msg) =>
-    set((s) => ({
-      pipeline: {
-        ...s.pipeline,
-        steps: s.pipeline.steps.map((step) =>
-          step.id === id
-            ? { ...step, status: "error", logLines: [msg] }
-            : step
-        ),
-      },
-    })),
-
-  setPipelineResult: (meal) =>
-    set((s) => ({
-      pipeline: { ...s.pipeline, status: "reviewing", result: meal },
-      logStep: "reviewing",
-    })),
-
-  setPipelineError: (msg) =>
-    set((s) => ({
-      pipeline: { ...s.pipeline, status: "error", error: msg },
-    })),
-
-  tickElapsed: () =>
-    set((s) => {
-      const start = s.pipeline.startedAt;
-      if (!start) return s;
-      return {
-        pipeline: { ...s.pipeline, elapsedMs: Date.now() - start },
-      };
-    }),
-
-  resetPipeline: () =>
-    set((s) => ({
-      pipeline: {
-        status: "idle",
-        steps: DEFAULT_STEPS.map((d) => ({ ...d })),
-        startedAt: null,
-        elapsedMs: 0,
-        result: null,
-        error: null,
-      },
-      inputText: "",
-    })),
-
-  // ── Notifications ─────────────────────────────────────────────
-  addNotification: (n) => {
-    const id = Math.random().toString(36).slice(2);
-    set((s) => ({ notifications: [...s.notifications, { ...n, id }] }));
-    const duration = n.duration ?? 4000;
-    if (duration > 0) {
-      setTimeout(() => get().removeNotification(id), duration);
-    }
-  },
-  removeNotification: (id) =>
-    set((s) => ({
-      notifications: s.notifications.filter((n) => n.id !== id),
-    })),
-
-  setActiveNav: (nav) => set({ activeNav: nav }),
-}));

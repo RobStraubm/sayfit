@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import { JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/system/Providers";
 
@@ -23,16 +22,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html
       lang="en"
       className={`${inter.variable} ${jetbrainsMono.variable} h-full`}
-      style={{ fontFamily: "var(--font-inter, system-ui, sans-serif)" }}
     >
-      <body className="h-full overflow-hidden bg-[#0A0A0F] text-[#E8E8F0]">
+      <body className="h-full">
         <Providers>{children}</Providers>
       </body>
     </html>
