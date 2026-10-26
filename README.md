@@ -1,5 +1,7 @@
 # SayFit
 
+[![CI](https://github.com/RobStraubm/sayfit/actions/workflows/ci.yml/badge.svg)](https://github.com/RobStraubm/sayfit/actions/workflows/ci.yml)
+
 **Say what you ate. SayFit turns it into structured nutrition data, logs it and suggests what to eat next.**
 
 ![SayFit demo: a spoken meal is processed step by step, reviewed and saved to the daily log](media/sayfit-demo.gif)
@@ -43,8 +45,15 @@ The web UI was developed with the help of Claude Code.
 
 ```bash
 cd frontend
-npm install
-NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
+npm ci
+cp .env.example .env.local   # API URL, defaults to http://localhost:8000
+npm run dev
 ```
 
-The UI needs the SayFit API from the [team repository](https://github.com/KevinSchmitt1/sayfit-alpha). The API needs a Groq API key and the FAISS index from the data pipeline. Without the API, the UI starts but cannot process meals.
+The UI needs the SayFit API from the [team repository](https://github.com/KevinSchmitt1/sayfit-alpha). The API needs an LLM API key (OpenAI for the default model, Groq otherwise) and the FAISS index from the data pipeline. Without the API, the UI starts but cannot process meals.
+
+Linting, type checks, formatting, unit tests and the production build run in CI on every push; see [`frontend/README.md`](frontend/README.md) for the scripts.
+
+## License
+
+[MIT](LICENSE)

@@ -15,10 +15,13 @@ export interface Meal {
   items: FoodItem[];
 }
 
+/** LLM provider for the pipeline; the API treats anything but "openai" as Groq. */
+export type LlmModel = "openai" | "anthropic";
+
 export interface MealCreate {
   uid: string;
   text: string;
-  model?: string;
+  model?: LlmModel;
 }
 
 export interface ItemPatch {
@@ -56,19 +59,7 @@ export interface MacroTotals {
   carbs: number;
 }
 
-export interface UserProfile {
-  uid: string;
-  weight_kg: number;
-  age_years: number;
-  pal: number;
-  kcal_daily: number;
-  protein_daily: number;
-  fat_daily: number;
-  carbs_daily: number;
-  goal: "maintain" | "lose" | "gain";
-}
-
-// ── Recipe suggestions ────────────────────────────────────────────────────────
+// ── Recipe suggestions ─────────────────────────────────────────
 
 export interface RecipePreferences {
   target_calories?: number;
@@ -83,12 +74,7 @@ export interface RecipeSuggestRequest {
   preferences?: RecipePreferences;
 }
 
-export interface RecipeNutrition {
-  calories: number;
-  protein: number;
-  fat: number;
-  carbs: number;
-}
+export type RecipeNutrition = MacroTotals;
 
 export interface RecipeSuggestion {
   title: string;

@@ -1,126 +1,83 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Plus } from "lucide-react";
 import { useAppStore } from "@/lib/store/app.store";
-import { mealsApi } from "@/lib/api/meals";
+import { useTodayMeals } from "@/lib/api/queries";
+import { useIsClient } from "@/lib/hooks/useIsClient";
+import { sumMacros } from "@/lib/macros";
+import { formatDate, formatTime } from "@/lib/utils";
+import { LogFlowModal } from "@/components/features/log-flow/LogFlowModal";
 import { MacroPanel } from "./MacroPanel";
 import { MealCard } from "./MealCard";
 import { QuickLogBar } from "./QuickLogBar";
-import { LogFlowModal } from "@/components/features/log-flow/LogFlowModal";
-import { Plus } from "lucide-react";
-import { formatDate } from "@/lib/utils";
 
 export function Dashboard() {
-  const uid          = useAppStore((s) => s.uid);
-  const todayMeals   = useAppStore((s) => s.todayMeals);
-  const todayLoading = useAppStore((s) => s.todayLoading);
-  const setTodayMeals  = useAppStore((s) => s.setTodayMeals);
-  const setTodayLoading = useAppStore((s) => s.setTodayLoading);
-  const openLogFlow    = useAppStore((s) => s.openLogFlow);
+  const uid = useAppStore((s) => s.uid);
+  const openLogFlow = useAppStore((s) => s.openLogFlow);
+  const { data: meals = [], isPending } = useTodayMeals();
 
-  // Load today's meals on mount
-  useEffect(() => {
-    const load = async () => {
-      setTodayLoading(true);
-      try {
-        const meals = await mealsApi.getToday(uid);
-        setTodayMeals(meals);
-      } catch {
-        // Backend might not be running — silent fail in dev
-      } finally {
-        setTodayLoading(false);
-      }
-    };
-    load();
-  }, [uid, setTodayMeals, setTodayLoading]);
-
-  const [today, setToday] = useState("");
-  useEffect(() => {
-    setToday(formatDate(new Date().toISOString()));
-  }, []);
+  // The page is prerendered at build time, so today's date is client-only.
+  const today = useIsClient() ? formatDate(new Date().toISOString()) : "";
 
   return (
     <div className="flex h-full">
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto p-6 gap-5">
-
+      <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-[15px] font-medium text-neutral-200">Today</h1>
-            <p
-              className="text-[11px] text-neutral-600 mt-0.5"
-              style={{ fontFamily: "var(--font-jetbrains, monospace)" }}
-            >
+            <p className="mt-0.5 font-mono text-[11px] text-neutral-600">
               {today}
             </p>
           </div>
-          <span
-            className="text-[11px] text-neutral-700 px-2 py-1 rounded-[5px] border border-[rgba(255,255,255,0.05)]"
-            style={{ fontFamily: "var(--font-jetbrains, monospace)" }}
-          >
+          <span className="rounded-[5px] border border-white/5 px-2 py-1 font-mono text-[11px] text-neutral-700">
             @{uid}
           </span>
         </div>
 
-        {/* Quick log */}
         <QuickLogBar />
 
         {/* Meals feed */}
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] text-neutral-600 uppercase tracking-widest">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-[11px] tracking-widest text-neutral-600 uppercase">
               Meals
             </span>
-            {todayMeals.length > 0 && (
-              <span
-                className="text-[11px] text-neutral-700"
-                style={{ fontFamily: "var(--font-jetbrains, monospace)" }}
-              >
-                {todayMeals.length} logged
+            {meals.length > 0 && (
+              <span className="font-mono text-[11px] text-neutral-700">
+                {meals.length} logged
               </span>
             )}
           </div>
 
-          {todayLoading && (
+          {isPending ? (
             <div className="flex flex-col gap-2">
               {[1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="skeleton h-12 rounded-[10px]"
-                />
+                <div key={i} className="h-12 skeleton rounded-[10px]" />
               ))}
             </div>
-          )}
-
-          {!todayLoading && todayMeals.length === 0 && (
-            <div
-              className="flex flex-col items-center gap-4 py-12 rounded-[12px]"
-              style={{
-                border: "1px dashed rgba(255,255,255,0.07)",
-                background: "rgba(255,255,255,0.01)",
-              }}
-            >
+          ) : meals.length === 0 ? (
+            <div className="flex flex-col items-center gap-4 rounded-[12px] border border-dashed border-white/7 bg-white/1 py-12">
               <div className="text-[32px] opacity-20">◎</div>
               <div className="text-center">
-                <p className="text-[13px] text-neutral-600">Nothing logged yet today</p>
-                <p className="text-[11px] text-neutral-700 mt-1">
+                <p className="text-[13px] text-neutral-600">
+                  Nothing logged yet today
+                </p>
+                <p className="mt-1 text-[11px] text-neutral-700">
                   Start by describing what you ate
                 </p>
               </div>
               <button
                 onClick={() => openLogFlow("text")}
-                className="flex items-center gap-2 text-[12px] text-[#4FC4B8] hover:text-[#6DCFC4] transition-colors"
+                className="flex items-center gap-2 text-[12px] text-accent transition-colors hover:text-accent-hover"
               >
                 <Plus size={13} />
                 Log your first meal
               </button>
             </div>
-          )}
-
-          {!todayLoading && todayMeals.length > 0 && (
+          ) : (
             <div className="flex flex-col gap-2">
-              {todayMeals.map((meal) => (
+              {meals.map((meal) => (
                 <MealCard key={meal.meal_id} meal={meal} />
               ))}
             </div>
@@ -129,51 +86,34 @@ export function Dashboard() {
       </div>
 
       {/* Right context panel */}
-      <aside
-        className="hidden lg:flex flex-col gap-4 p-5 overflow-y-auto"
-        style={{
-          width: "280px",
-          background: "#0D0D14",
-          borderLeft: "1px solid rgba(255,255,255,0.05)",
-        }}
-      >
+      <aside className="hidden w-[280px] flex-col gap-4 overflow-y-auto border-l border-white/5 bg-rail p-5 lg:flex">
         <div>
-          <p className="text-[10px] text-neutral-700 uppercase tracking-widest mb-3">
+          <p className="mb-3 text-[10px] tracking-widest text-neutral-700 uppercase">
             Macros
           </p>
           <MacroPanel />
         </div>
 
-        {/* Activity hint */}
-        {todayMeals.length > 0 && (
+        {meals.length > 0 && (
           <div>
-            <p className="text-[10px] text-neutral-700 uppercase tracking-widest mb-2">
+            <p className="mb-2 text-[10px] tracking-widest text-neutral-700 uppercase">
               Activity
             </p>
             <div className="flex flex-col gap-1">
-              {todayMeals.slice(0, 5).map((m) => (
+              {meals.slice(0, 5).map((meal) => (
                 <div
-                  key={m.meal_id}
+                  key={meal.meal_id}
                   className="flex items-center gap-2 py-1.5"
                 >
-                  <span
-                    className="text-[10px] text-neutral-700 w-8 shrink-0"
-                    style={{ fontFamily: "var(--font-jetbrains, monospace)" }}
-                  >
-                    {new Date(m.date_time).toLocaleTimeString("de-DE", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                  <span className="w-8 shrink-0 font-mono text-[10px] text-neutral-700">
+                    {formatTime(meal.date_time)}
                   </span>
-                  <span className="text-[11px] text-neutral-600 truncate">
-                    {m.items[0]?.item_name ?? "meal"}
-                    {m.items.length > 1 && ` +${m.items.length - 1}`}
+                  <span className="truncate text-[11px] text-neutral-600">
+                    {meal.items[0]?.item_name ?? "meal"}
+                    {meal.items.length > 1 && ` +${meal.items.length - 1}`}
                   </span>
-                  <span
-                    className="ml-auto text-[10px] text-neutral-700 shrink-0"
-                    style={{ fontFamily: "var(--font-jetbrains, monospace)" }}
-                  >
-                    {Math.round(m.items.reduce((s, i) => s + i.calories, 0))}
+                  <span className="ml-auto shrink-0 font-mono text-[10px] text-neutral-700">
+                    {Math.round(sumMacros(meal.items).calories)}
                   </span>
                 </div>
               ))}
@@ -182,7 +122,6 @@ export function Dashboard() {
         )}
       </aside>
 
-      {/* Log Flow Modal */}
       <LogFlowModal />
     </div>
   );

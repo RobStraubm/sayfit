@@ -1,74 +1,65 @@
 "use client";
 
+import { CheckCircle2, Circle, Loader2, XCircle } from "lucide-react";
 import { useAppStore, type PipelineStep } from "@/lib/store/app.store";
-import { CheckCircle2, XCircle, Loader2, Circle } from "lucide-react";
 import { cn, msToSeconds } from "@/lib/utils";
-import { useEffect, useRef } from "react";
+
+function StepIcon({ status }: { status: PipelineStep["status"] }) {
+  switch (status) {
+    case "done":
+      return <CheckCircle2 size={14} className="text-success" />;
+    case "active":
+      return <Loader2 size={14} className="animate-spin-slow text-accent" />;
+    case "error":
+      return <XCircle size={14} className="text-danger" />;
+    case "pending":
+      return <Circle size={14} className="text-surface-4" />;
+  }
+}
+
+const LABEL_CLASSES: Record<PipelineStep["status"], string> = {
+  done: "text-neutral-300",
+  active: "animate-step-pulse text-accent",
+  error: "text-danger",
+  pending: "text-neutral-700",
+};
 
 function StepRow({ step }: { step: PipelineStep }) {
-  const isActive  = step.status === "active";
-  const isDone    = step.status === "done";
-  const isError   = step.status === "error";
-  const isPending = step.status === "pending";
+  const { status } = step;
 
   return (
     <div
       className={cn(
-        "flex items-start gap-3 py-2 px-3 rounded-[8px] transition-all duration-300",
-        isActive  && "bg-[#4FC4B8]/5",
-        isError   && "bg-[#E05252]/5",
+        "flex items-start gap-3 rounded-[8px] px-3 py-2 transition-all duration-300",
+        status === "active" && "bg-accent/5",
+        status === "error" && "bg-danger/5",
       )}
     >
-      {/* Status icon */}
-      <div className="mt-0.5 w-4 shrink-0 flex items-center justify-center">
-        {isDone    && <CheckCircle2 size={14} className="text-[#4CAF7D]" />}
-        {isActive  && <Loader2 size={14} className="text-[#4FC4B8] animate-spin-slow" />}
-        {isError   && <XCircle size={14} className="text-[#E05252]" />}
-        {isPending && <Circle size={14} className="text-[#2A2A38]" />}
+      <div className="mt-0.5 flex w-4 shrink-0 items-center justify-center">
+        <StepIcon status={status} />
       </div>
 
-      {/* Label + duration */}
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1 font-mono">
         <div className="flex items-baseline justify-between gap-2">
-          <span
-            className={cn(
-              "text-[13px] font-mono",
-              isDone    && "text-neutral-300",
-              isActive  && "text-[#4FC4B8] animate-step-pulse",
-              isError   && "text-[#E05252]",
-              isPending && "text-neutral-700",
-            )}
-            style={{ fontFamily: "var(--font-jetbrains, monospace)" }}
-          >
+          <span className={cn("text-[13px]", LABEL_CLASSES[status])}>
             {step.label}
           </span>
-          {isDone && step.durationMs && (
-            <span
-              className="text-[11px] text-neutral-700 shrink-0"
-              style={{ fontFamily: "var(--font-jetbrains, monospace)" }}
-            >
+          {status === "done" && step.durationMs && (
+            <span className="shrink-0 text-[11px] text-neutral-700">
               {msToSeconds(step.durationMs)}
             </span>
           )}
-          {isActive && (
-            <span
-              className="text-[11px] text-[#4FC4B8]/50 shrink-0 animate-step-pulse"
-              style={{ fontFamily: "var(--font-jetbrains, monospace)" }}
-            >
+          {status === "active" && (
+            <span className="shrink-0 animate-step-pulse text-[11px] text-accent/50">
               …
             </span>
           )}
         </div>
 
-        {/* Log lines (done step only) */}
-        {isDone && step.logLines.length > 0 && (
+        {status === "done" && step.logLines.length > 0 && (
           <div className="mt-1 flex flex-col gap-0.5">
             {step.logLines.map((line, i) => (
-              <span
-                key={i}
-                className="text-[11px] text-neutral-700"
-                style={{ fontFamily: "var(--font-jetbrains, monospace)" }}
-              >
+              <span key={i} className="text-[11px] text-neutral-700">
                 {line}
               </span>
             ))}
@@ -80,39 +71,21 @@ function StepRow({ step }: { step: PipelineStep }) {
 }
 
 export function PipelineMonitor() {
-  const steps      = useAppStore((s) => s.pipeline.steps);
-  const elapsedMs  = useAppStore((s) => s.pipeline.elapsedMs);
-  const status     = useAppStore((s) => s.pipeline.status);
-  const error      = useAppStore((s) => s.pipeline.error);
-  const inputText  = useAppStore((s) => s.inputText);
-  const logEndRef  = useRef<HTMLDivElement>(null);
+  const { steps, elapsedMs, status, error } = useAppStore((s) => s.pipeline);
+  const inputText = useAppStore((s) => s.inputText);
 
-  // Scroll log area to bottom as new lines appear
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [steps]);
-
-  const doneCount   = steps.filter((s) => s.status === "done").length;
-  const totalCount  = steps.length;
-  const progressPct = (doneCount / totalCount) * 100;
-
-  const elapsedSec  = (elapsedMs / 1000).toFixed(1);
+  const doneCount = steps.filter((s) => s.status === "done").length;
+  const progressPct = (doneCount / steps.length) * 100;
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2
-            className="text-[15px] font-medium text-neutral-100"
-          >
+          <h2 className="text-[15px] font-medium text-neutral-100">
             Processing
           </h2>
           {inputText && (
-            <p
-              className="text-[11px] text-neutral-600 mt-0.5 truncate max-w-[340px]"
-              style={{ fontFamily: "var(--font-jetbrains, monospace)" }}
-            >
+            <p className="mt-0.5 max-w-[340px] truncate font-mono text-[11px] text-neutral-600">
               &quot;{inputText}&quot;
             </p>
           )}
@@ -120,43 +93,36 @@ export function PipelineMonitor() {
 
         {status === "running" && (
           <div className="flex items-center gap-2">
-            <span
-              className="text-[12px] text-neutral-600"
-              style={{ fontFamily: "var(--font-jetbrains, monospace)" }}
-            >
-              {elapsedSec}s
+            <span className="font-mono text-[12px] text-neutral-600">
+              {msToSeconds(elapsedMs)}
             </span>
-            <Loader2 size={14} className="text-[#4FC4B8] animate-spin-slow" />
+            <Loader2 size={14} className="animate-spin-slow text-accent" />
           </div>
         )}
       </div>
 
-      {/* Progress bar */}
-      <div className="h-[2px] rounded-full bg-[#1E1E2A] overflow-hidden">
+      <div
+        role="progressbar"
+        aria-valuenow={doneCount}
+        aria-valuemin={0}
+        aria-valuemax={steps.length}
+        className="h-[2px] overflow-hidden rounded-full bg-surface-3"
+      >
         <div
-          className="h-full rounded-full bg-[#4FC4B8] transition-all duration-500"
+          className="h-full rounded-full bg-accent transition-all duration-500"
           style={{ width: `${progressPct}%` }}
         />
       </div>
 
-      {/* Steps */}
-      <div className="flex flex-col gap-0.5" ref={logEndRef}>
+      <div className="flex flex-col gap-0.5">
         {steps.map((step) => (
           <StepRow key={step.id} step={step} />
         ))}
       </div>
 
-      {/* Error state */}
       {status === "error" && error && (
-        <div
-          className="rounded-[8px] px-4 py-3 text-[12px] text-[#E05252]"
-          style={{
-            background: "rgba(224,82,82,0.07)",
-            border: "1px solid rgba(224,82,82,0.15)",
-            fontFamily: "var(--font-jetbrains, monospace)",
-          }}
-        >
-          <span className="text-[#E05252]/60 mr-2">error</span>
+        <div className="rounded-[8px] border border-danger/15 bg-danger/7 px-4 py-3 font-mono text-[12px] text-danger">
+          <span className="mr-2 text-danger/60">error</span>
           {error}
         </div>
       )}

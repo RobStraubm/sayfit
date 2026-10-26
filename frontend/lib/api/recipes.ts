@@ -10,11 +10,11 @@ export const recipesApi = {
   /** POST /recipes/{uid}/suggest */
   suggest: async (
     uid: string,
-    body: RecipeSuggestRequest
+    body: RecipeSuggestRequest,
   ): Promise<RecipeSuggestResponse> => {
     const res = await apiClient.post<RecipeSuggestResponse>(
       `/recipes/${uid}/suggest`,
-      body
+      body,
     );
     return res.data;
   },
@@ -23,7 +23,7 @@ export const recipesApi = {
   logSuggestion: async (uid: string, body: RecipeLogRequest): Promise<Meal> => {
     const res = await apiClient.post<Meal>(
       `/recipes/${uid}/log-suggestion`,
-      body
+      body,
     );
     return res.data;
   },

@@ -1,11 +1,13 @@
-# Abhängigkeiten und Builds
+# Dependencies and build output
 node_modules/
 .next/
 out/
+coverage/
 *.tsbuildinfo
 
-# lokale Einstellungen
+# Local environment (keep the example)
 .env*
+!.env.example
 
 # macOS
 .DS_Store
